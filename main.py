@@ -1,5 +1,25 @@
 import json
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, List
+
+
+# ==========================================
+# ЯДРО СОБЫТИЙ (Основа паттерна Observer)
+# ==========================================
+class EventManager:
+    def __init__(self):
+        self._listeners: Dict[str, List[Callable]] = {}
+
+    def subscribe(self, event_type: str, listener: Callable):
+        if event_type not in self._listeners:
+            self._listeners[event_type] = []
+        self._listeners[event_type].append(listener)
+
+    def notify(self, event_type: str, data: Any = None):
+        for listener in self._listeners.get(event_type, []):
+            listener(data)
+
+
+game_events = EventManager()
 
 
 class ConsoleUI:
@@ -19,6 +39,9 @@ class SaveManager:
         print(f"\n💾 Игра сохранена в {filename}")
 
 
+# ==========================================
+# ПОДСИСТЕМЫ И ДВИЖОК (Подписчики/Наблюдатели)
+# ==========================================
 class LevelManager:
     @staticmethod
     def spawn_enemies_for_level(level_name: str):
@@ -31,9 +54,18 @@ class LevelManager:
 
 class AchievementSystem:
     @staticmethod
-    def check_damage(damage: int):
+    def on_damage_dealt(damage: int):
         if damage > 20:
             print("🏆 АЧИВКА: Сокрушительный удар!")
+
+
+class AudioEngine:
+    @staticmethod
+    def on_damage_dealt(damage: int):
+        if damage > 20:
+            print("🔊 ЗВУК: [Эпичный взрыв и крик врага]")
+        else:
+            print("🔊 ЗВУК: [Глухой звук удара]")
 
 
 class Inventory:
@@ -44,9 +76,10 @@ class Inventory:
         self._items.append(item)
 
 
-# ==========================================
-# СТРАТЕГИИ ОРУЖИЯ
-# ==========================================
+game_events.subscribe("damage_dealt", AchievementSystem.on_damage_dealt)
+game_events.subscribe("damage_dealt", AudioEngine.on_damage_dealt)
+
+
 WeaponStrategy = Callable[["Hero", str], int]
 
 
@@ -101,11 +134,10 @@ class Hero:
 
     def attack(self, enemy_name: str):
         print(f"[{self.name}] атакует {enemy_name}!")
-
         damage = self._attack_strategy(self, enemy_name)
-
         print(f"Нанесено {damage} урона.")
-        AchievementSystem.check_damage(damage)
+
+        game_events.notify("damage_dealt", damage)
 
     def move(self, location: str):
         self.level = location
