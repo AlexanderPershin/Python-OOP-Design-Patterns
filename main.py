@@ -22,11 +22,15 @@ game_events = EventManager()
 
 class ConsoleUI:
     @staticmethod
-    def render_hero(name: str, hp: int, weapon: str, level: str):
-        print("\n" + "=" * 30)
+    def render_hero(
+        name: str, hp: int, weapon: str, level: str, buffs: str = ""
+    ):
+        print("\n" + "=" * 40)
         print(f"ГЕРОЙ: {name} | HP: {hp}")
         print(f"ОРУЖИЕ: {weapon.upper()} | ЛОКАЦИЯ: {level.upper()}")
-        print("=" * 30 + "\n")
+        if buffs:
+            print(f"ЭФФЕКТЫ: {buffs}")
+        print("=" * 40 + "\n")
 
 
 class SaveManager:
@@ -37,9 +41,6 @@ class SaveManager:
         print(f"\n💾 Игра сохранена в {filename}")
 
 
-# ==========================================
-# Начало обновлений
-# ==========================================
 class Enemy(ABC):
     @abstractmethod
     def spawn(self) -> str:
@@ -69,7 +70,7 @@ class ForestOrc(Enemy):
 
 class ForestSnare(Trap):
     def trigger(self) -> str:
-        return "🕸️ Ловушка-сеть! Герой опутан ветвями."
+        return "🕸️ Ловушка-сеть! Герой опутан ветвями"
 
 
 class ForestLevelFactory(LevelFactory):
@@ -87,7 +88,7 @@ class FireElemental(Enemy):
 
 class LavaPit(Trap):
     def trigger(self) -> str:
-        return "🌋 Лавовая яма! Ноги обжигает."
+        return "🌋 Лавовая яма! Ноги обжигает"
 
 
 class LavaLevelFactory(LevelFactory):
@@ -144,7 +145,119 @@ class LevelManager:
 
 
 # ==========================================
-# Конец обновлений
+# ПАТТЕРН ДЕКОРАТОР (GoF)
+# ==========================================
+
+
+class Attackable(ABC):
+    @abstractmethod
+    def attack(self, enemy_name: str) -> int:
+        pass
+
+    @abstractmethod
+    def get_stats(self) -> Dict[str, Any]:
+        pass
+
+
+class AttackDecorator(Attackable, ABC):
+    def __init__(self, wrapped: Attackable, uses_left: int = 3):
+        self._wrapped = wrapped
+        self._uses_left = uses_left
+
+    @abstractmethod
+    def _apply_damage_modification(self, base_damage: int) -> int:
+        pass
+
+    def is_active(self) -> bool:
+        if self._uses_left is None:
+            return True
+        return self._uses_left > 0
+
+    def attack(self, enemy_name: str) -> int:
+        if not self.is_active():
+            return self._wrapped.attack(enemy_name)
+        if self._uses_left is not None:
+            self._uses_left -= 1
+
+        base_damage = self._wrapped.attack(enemy_name)
+        mod_damage = self._apply_damage_modification(base_damage)
+
+        if self._uses_left == 0:
+            print(f"⏳️ Действие {self.NAME} закончилось!")
+
+        return mod_damage
+
+    def get_stats(self) -> Dict[str, Any]:
+        return self._wrapped.get_stats()
+
+    def render_ui(self):
+        if self.is_active():
+            print(f"Бафф активен: {self.NAME}")
+        return self._wrapped.render_ui()
+
+    def __getattr__(self, name):
+        attr = getattr(self._wrapped, name, None)
+
+        if callable(attr):
+
+            def wrapper(*args, **kwargs):
+                return attr(*args, **kwargs)
+
+            return wrapper
+
+        return attr
+
+
+class FireRingDecorator(AttackDecorator):
+    BONUS_DAMAGE = 5
+    NAME = "Огненное кольцо"
+
+    def _apply_damage_modification(self, base_damage: int) -> int:
+        print(f"🔥 {self.NAME} добавляет {self.BONUS_DAMAGE} урона")
+        return base_damage + self.BONUS_DAMAGE
+
+
+class StrengthPotionDecorator(AttackDecorator):
+    MULTIPLIER = 1.5
+    NAME = "Зелье силы"
+
+    def _apply_damage_modification(self, base_damage: int) -> int:
+        print(f"💪 {self.NAME} умножает урон на {self.BONUS_DAMAGE}")
+        return base_damage * self.MULTIPLIER
+
+
+class SlowCurseDecorator(AttackDecorator):
+    MULTIPLIER = 0.5
+    NAME = "Проклятие замедления"
+
+    def _apply_damage_modification(self, base_damage: int) -> int:
+        print(f"{self.NAME} умножает урон на {self.MULTIPLIER}")
+        return base_damage * self.MULTIPLIER
+
+
+class PoisonWeaponDecorator(AttackDecorator):
+    BONUS_DAMAGE = 3
+    NAME = "Отравленное оружие"
+
+    def _apply_damage_modification(self, base_damage: int) -> int:
+        print(f"☠️ {self.NAME} добавляет {self.BONUS_DAMAGE} урона")
+        return base_damage + self.BONUS_DAMAGE
+
+
+class BerserkRageDecorator(AttackDecorator):
+    MULTIPLIER = 2.0
+    HP_COST = 5
+    NAME = "Ярость берсерка"
+
+    def _apply_damage_modification(self, base_damage: int) -> int:
+        self._wrapped.hp = max(0, self._wrapped.hp - self.HP_COST)
+        print(f"🩸 {self.NAME} умножает урон на {self.MULTIPLIER}")
+        print(f"🩸 {self.NAME} отнимает {self.HP_COST} здоровья")
+        return base_damage * self.MULTIPLIER
+
+
+# ==========================================
+# КОНЕЦ ОБНОВЛЕНИЙ
 # ==========================================
 
 
@@ -153,13 +266,17 @@ class AchievementSystem:
     def on_damage_dealt(damage: int):
         if damage > 20:
             print("🏆 АЧИВКА: Сокрушительный удар!")
+        if damage > 40:
+            print("🏆 АЧИВКА: Бог войны!")
 
 
 class AudioEngine:
     @staticmethod
     def on_damage_dealt(damage: int):
-        if damage > 20:
+        if damage > 30:
             print("🔊 ЗВУК: [Эпичный взрыв и крик врага]")
+        elif damage > 15:
+            print("🔊 ЗВУК: [Мощный удар]")
         else:
             print("🔊 ЗВУК: [Глухой звук удара]")
 
@@ -170,6 +287,10 @@ class Inventory:
 
     def add(self, item: str):
         self._items.append(item)
+        print(f"📦 В инвентарь добавлено: {item}")
+
+    def list_items(self) -> List[str]:
+        return self._items.copy()
 
 
 game_events.subscribe("damage_dealt", AchievementSystem.on_damage_dealt)
@@ -207,7 +328,7 @@ WEAPON_REGISTRY: Dict[str, WeaponStrategy] = {
 }
 
 
-class Hero:
+class Hero(Attackable):
     def __init__(self, name: str):
         self.name = name
         self.hp = 100
@@ -227,13 +348,22 @@ class Hero:
         self._attack_strategy = WEAPON_REGISTRY.get(
             weapon_name, unarmed_strategy
         )
+        print(f"⚔️ Оружие изменено на: {weapon_name}")
 
-    def attack(self, enemy_name: str):
+    def attack(self, enemy_name: str) -> int:
         print(f"[{self.name}] атакует {enemy_name}!")
         damage = self._attack_strategy(self, enemy_name)
-        print(f"Нанесено {damage} урона.")
-
+        print(f"Базовый урон: {damage}")
         game_events.notify("damage_dealt", damage)
+        return damage
+
+    def get_stats(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "hp": self.hp,
+            "weapon": self.weapon_type,
+            "level": self.level,
+        }
 
     def move(self, location: str):
         self.level = location
@@ -241,25 +371,86 @@ class Hero:
         LevelManager.spawn_enemies_for_level(self.level)
 
     def render_ui(self):
-        ConsoleUI.render_hero(self.name, self.hp, self.weapon_type, self.level)
+        stats = self.get_stats()
+        ConsoleUI.render_hero(
+            stats["name"],
+            stats["hp"],
+            stats["weapon"],
+            stats["level"],
+        )
 
     def export_state(self) -> Dict[str, Any]:
+        stats = self.get_stats()
         return {
-            "name": self.name,
-            "hp": self.hp,
-            "weapon_type": self.weapon_type,
-            "level": self.level,
+            "name": stats["name"],
+            "hp": stats["hp"],
+            "weapon_type": stats["weapon"],
+            "level": stats["level"],
+            "inventory": self.inventory.list_items(),
         }
 
 
 if __name__ == "__main__":
-    player = Hero("Артур")
-    player.render_ui()
+    print("=" * 50)
+    print("🎮 DUNGEON CRAWLER + ПАТТЕРН ДЕКОРАТОР (GoF)")
+    print("=" * 50)
 
-    player.attack("Слизень")
+    hero: Attackable = Hero("Артур")
 
-    player.weapon_type = "magic_staff"
-    player.attack("Гоблин")
+    print("\n📊 НАЧАЛЬНОЕ СОСТОЯНИЕ (голый герой):")
+    hero.render_ui()
 
-    player.move("lava")
-    SaveManager.save_to_json(player.export_state())
+    print("\n⚔️ АТАКА 1: Без баффов")
+    hero.attack("Слизень")
+
+    print("\n🔥 Надеваем Кольцо Огня...")
+    hero = FireRingDecorator(hero)
+    print("\n📊 ТЕКУЩЕЕ СОСТОЯНИЕ:")
+    hero.render_ui()
+
+    print("\n⚔️ АТАКА 2: С кольцом огня")
+    hero.attack("Гоблин")
+
+    print("\n💪 Пьём Зелье Силы...")
+    hero = StrengthPotionDecorator(hero)
+
+    print("\n⚔️ АТАКА 3: Кольцо + Зелье")
+    hero.attack("Орк")
+
+    print("\n💀 Наложено Проклятие Замедления...")
+    hero = SlowCurseDecorator(hero)
+
+    print("\n⚔️ АТАКА 4: Кольцо + Зелье + Проклятие")
+    hero.attack("Дракон")
+
+    print("\n☠️ Отравляем оружие...")
+    hero = PoisonWeaponDecorator(hero)
+
+    print("\n⚔️ АТАКА 5: Полная комбинация")
+    hero.attack("Демон")
+
+    print("\n📊 ФИНАЛЬНОЕ СОСТОЯНИЕ:")
+    hero.render_ui()
+
+    print("\n💾 СОХРАНЕНИЕ:")
+    SaveManager.save_to_json(hero.export_state())
+
+    print("\n" + "=" * 50)
+    print("🧪 ДЕМОНСТРАЦИЯ: ПОРЯДОК ВАЖЕН!")
+    print("=" * 50)
+
+    hero2: Attackable = Hero("Тест")
+    hero2.weapon_type = "sword"
+    print("\nВариант А: Сначала Кольцо, потом Зелье")
+    hero_a = StrengthPotionDecorator(FireRingDecorator(hero2))
+    hero_a.attack("Манекен")
+
+    hero3: Attackable = Hero("Тест2")
+    hero3.weapon_type = "sword"
+    print("\nВариант Б: Сначала Зелье, потом Кольцо")
+    hero_b = FireRingDecorator(StrengthPotionDecorator(hero3))
+    hero_b.attack("Манекен")
+
+    print("\n" + "=" * 50)
+    print("✅ Демонстрация завершена!")
+    print("=" * 50)
