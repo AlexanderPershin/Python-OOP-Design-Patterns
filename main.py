@@ -1,10 +1,7 @@
 import json
-from typing import Dict, Any
+from typing import Dict, Any, Callable
 
 
-# ==========================================
-# 1. СЛОЙ ОТОБРАЖЕНИЯ (UI)
-# ==========================================
 class ConsoleUI:
     @staticmethod
     def render_hero(name: str, hp: int, weapon: str, level: str):
@@ -14,9 +11,6 @@ class ConsoleUI:
         print("=" * 30 + "\n")
 
 
-# ==========================================
-# 2. СЛОЙ ИНФРАСТРУКТУРЫ
-# ==========================================
 class SaveManager:
     @staticmethod
     def save_to_json(data: Dict[str, Any], filename: str = "save.json"):
@@ -25,9 +19,6 @@ class SaveManager:
         print(f"\n💾 Игра сохранена в {filename}")
 
 
-# ==========================================
-# 3. ПОДСИСТЕМЫ И ДВИЖОК
-# ==========================================
 class LevelManager:
     @staticmethod
     def spawn_enemies_for_level(level_name: str):
@@ -36,8 +27,6 @@ class LevelManager:
             print("Появился Лесной Орк (HP: 50)!")
         elif level_name == "lava":
             print("Появился Огненный Элементаль (HP: 100)!")
-        elif level_name == "ice_caves":
-            print("Появился Ледяной Тролль (HP: 80)!")
 
 
 class AchievementSystem:
@@ -56,42 +45,71 @@ class Inventory:
 
 
 # ==========================================
-# 4. ДОМЕННАЯ МОДЕЛЬ — Герой
+# СТРАТЕГИИ ОРУЖИЯ
 # ==========================================
+WeaponStrategy = Callable[["Hero", str], int]
+
+
+def sword_strategy(hero: "Hero", enemy_name: str) -> int:
+    print("Взмах мечом! Вжииих!")
+    return 15
+
+
+def bow_strategy(hero: "Hero", enemy_name: str) -> int:
+    print("Выстрел из лука! Пиу!")
+    return 10
+
+
+def magic_staff_strategy(hero: "Hero", enemy_name: str) -> int:
+    hero.hp -= 5
+    print("Магический удар! Бабах! (Потрачено 5 HP)")
+    return 25
+
+
+def unarmed_strategy(hero: "Hero", enemy_name: str) -> int:
+    print("Герой бьет кулаками.")
+    return 2
+
+
+WEAPON_REGISTRY: Dict[str, WeaponStrategy] = {
+    "sword": sword_strategy,
+    "bow": bow_strategy,
+    "magic_staff": magic_staff_strategy,
+}
+
+
 class Hero:
     def __init__(self, name: str):
         self.name = name
         self.hp = 100
-        self.weapon_type = "sword"
         self.inventory = Inventory()
         self.level = "forest"
 
+        self._weapon_type = "sword"
+        self._attack_strategy = WEAPON_REGISTRY.get("sword", unarmed_strategy)
+
+    @property
+    def weapon_type(self) -> str:
+        return self._weapon_type
+
+    @weapon_type.setter
+    def weapon_type(self, weapon_name: str):
+        self._weapon_type = weapon_name
+        self._attack_strategy = WEAPON_REGISTRY.get(
+            weapon_name, unarmed_strategy
+        )
+
     def attack(self, enemy_name: str):
         print(f"[{self.name}] атакует {enemy_name}!")
-        damage = 0
 
-        if self.weapon_type == "sword":
-            damage = 15
-            print("Взмах мечом! Вжииих!")
-        elif self.weapon_type == "bow":
-            damage = 10
-            print("Выстрел из лука! Пиу!")
-        elif self.weapon_type == "magic_staff":
-            damage = 25
-            self.hp -= 5
-            print("Магический удар! Бабах! (Потрачено 5 HP)")
-        else:
-            print("Герой бьет кулаками.")
-            damage = 2
+        damage = self._attack_strategy(self, enemy_name)
 
         print(f"Нанесено {damage} урона.")
-
         AchievementSystem.check_damage(damage)
 
     def move(self, location: str):
         self.level = location
         print(f"\n[{self.name}] переходит в локацию: {self.level}")
-
         LevelManager.spawn_enemies_for_level(self.level)
 
     def render_ui(self):
