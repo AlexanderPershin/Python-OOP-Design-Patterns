@@ -1,10 +1,8 @@
 import json
+from abc import ABC, abstractmethod
 from typing import Dict, Any, Callable, List
 
 
-# ==========================================
-# ЯДРО СОБЫТИЙ (Основа паттерна Observer)
-# ==========================================
 class EventManager:
     def __init__(self):
         self._listeners: Dict[str, List[Callable]] = {}
@@ -40,16 +38,114 @@ class SaveManager:
 
 
 # ==========================================
-# ПОДСИСТЕМЫ И ДВИЖОК (Подписчики/Наблюдатели)
+# Начало обновлений
 # ==========================================
+class Enemy(ABC):
+    @abstractmethod
+    def spawn(self) -> str:
+        pass
+
+
+class Trap(ABC):
+    @abstractmethod
+    def trigger(self) -> str:
+        pass
+
+
+class LevelFactory(ABC):
+    @abstractmethod
+    def create_enemy(self) -> Enemy:
+        pass
+
+    @abstractmethod
+    def create_trap(self) -> Trap:
+        pass
+
+
+class ForestOrc(Enemy):
+    def spawn(self) -> str:
+        return "🌲 Лесной Орк вылез из-за дерева! (HP: 50)"
+
+
+class ForestSnare(Trap):
+    def trigger(self) -> str:
+        return "🕸️ Ловушка-сеть! Герой опутан ветвями."
+
+
+class ForestLevelFactory(LevelFactory):
+    def create_enemy(self) -> Enemy:
+        return ForestOrc()
+
+    def create_trap(self) -> Trap:
+        return ForestSnare()
+
+
+class FireElemental(Enemy):
+    def spawn(self) -> str:
+        return "🔥 Огненный Элементаль восстал из лавы! (HP: 100)"
+
+
+class LavaPit(Trap):
+    def trigger(self) -> str:
+        return "🌋 Лавовая яма! Ноги обжигает."
+
+
+class LavaLevelFactory(LevelFactory):
+    def create_enemy(self) -> Enemy:
+        return FireElemental()
+
+    def create_trap(self) -> Trap:
+        return LavaPit()
+
+
+class IceGolem(Enemy):
+    def spawn(self) -> str:
+        return "❄️ Ледяной Голем пробудился! (HP: 120, броня: 20)"
+
+
+class IceSpike(Trap):
+    def trigger(self) -> str:
+        return "🧊 Ледяной шип выстрелил из-под ног!"
+
+
+class IceLevelFactory(LevelFactory):
+    def create_enemy(self) -> Enemy:
+        return IceGolem()
+
+    def create_trap(self) -> Trap:
+        return IceSpike()
+
+
+FACTORY_REGISTRY: Dict[str, type[LevelFactory]] = {
+    "forest": ForestLevelFactory,
+    "lava": LavaLevelFactory,
+    "ice": IceLevelFactory,
+}
+
+
+def get_factory(level_name: str) -> LevelFactory:
+    factory_class = FACTORY_REGISTRY.get(level_name)
+    if not factory_class:
+        raise ValueError(f"Неизвестный биом: {level_name}")
+    return factory_class()
+
+
 class LevelManager:
     @staticmethod
     def spawn_enemies_for_level(level_name: str):
         print("Генерация врагов...")
-        if level_name == "forest":
-            print("Появился Лесной Орк (HP: 50)!")
-        elif level_name == "lava":
-            print("Появился Огненный Элементаль (HP: 100)!")
+        factory = get_factory(level_name)
+
+        enemy = factory.create_enemy()
+        trap = factory.create_trap()
+
+        print(enemy.spawn())
+        print(trap.trigger())
+
+
+# ==========================================
+# Конец обновлений
+# ==========================================
 
 
 class AchievementSystem:
