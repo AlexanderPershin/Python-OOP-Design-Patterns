@@ -14,6 +14,12 @@ from game.patterns.decorators import (
     SlowCurseDecorator,
     StrengthPotionDecorator,
 )
+from game.patterns.state import (
+    FragileState,
+    InvulnerableState,
+    NormalState,
+    StunnedState,
+)
 from game.world.entities import ForestOrc
 
 
@@ -81,6 +87,35 @@ def run_demo():
     hero.render_ui()
 
     print("\n" + "=" * 60)
+    print("🏛️ ПАТТЕРН STATE (GoF): состояния героя")
+    print("=" * 60)
+
+    hero_state_demo = Hero("Грегор")
+    hero_state_demo.take_damage(10)
+    print("\n▶ Исходно (NormalState):")
+    hero_state_demo.render_ui()
+
+    hero_state_demo.state = InvulnerableState()
+    print("\n▶ Неуязвимость + удар:")
+    slap(hero_state_demo, 50)
+    hero_state_demo.render_ui()
+
+    hero_state_demo.state = StunnedState()
+    print("\n▶ Оглушение:")
+    hero_state_demo.attack("Мишень")
+    slap(hero_state_demo, 5)
+    hero_state_demo.render_ui()
+
+    hero_state_demo.state = FragileState()
+    print("\n▶ Хрупкость (+10%% к входящему урона), slap на 10 → ceil(11):")
+    slap(hero_state_demo, 10)
+    hero_state_demo.render_ui()
+
+    hero_state_demo.state = NormalState()
+    print("\n▶ Возврат в Normal:")
+    hero_state_demo.render_ui()
+
+    print("\n" + "=" * 60)
     print("👹 БОСС (АДАПТЕР)")
     print("=" * 60)
 
@@ -94,10 +129,10 @@ def run_demo():
     print("=" * 60)
 
     hero2: Attackable = Hero("Мерлин")
-    hero2.weapon_type = "sword"  # type: ignore
+    hero2.weapon_type = "sword"
 
     print("\n📊 НАЧАЛЬНОЕ СОСТОЯНИЕ (голый герой):")
-    hero2.render_ui()  # type: ignore
+    hero2.render_ui()
 
     print("\n⚔️ АТАКА 1: Без баффов")
     hero2.attack("Слизень")
@@ -105,7 +140,7 @@ def run_demo():
     print("\n🔥 Надеваем Кольцо Огня...")
     hero2 = FireRingDecorator(hero2)
     print("\n📊 ТЕКУЩЕЕ СОСТОЯНИЕ:")
-    hero2.render_ui()  # type: ignore
+    hero2.render_ui()
 
     print("\n⚔️ АТАКА 2: С кольцом огня")
     hero2.attack("Гоблин")
@@ -129,20 +164,20 @@ def run_demo():
     hero2.attack("Демон")
 
     print("\n📊 ФИНАЛЬНОЕ СОСТОЯНИЕ:")
-    hero2.render_ui()  # type: ignore
+    hero2.render_ui()
 
     print("\n" + "=" * 60)
     print("🧪 ДЕМОНСТРАЦИЯ: ПОРЯДОК ВАЖЕН!")
     print("=" * 60)
 
     hero_a: Attackable = Hero("Тест-А")
-    hero_a.weapon_type = "sword"  # type: ignore
+    hero_a.weapon_type = "sword"
     print("\nВариант А: Сначала Кольцо (+5), потом Зелье (×1.5)")
     hero_a = StrengthPotionDecorator(FireRingDecorator(hero_a))
     hero_a.attack("Манекен")
 
     hero_b: Attackable = Hero("Тест-Б")
-    hero_b.weapon_type = "sword"  # type: ignore
+    hero_b.weapon_type = "sword"
     print("\nВариант Б: Сначала Зелье (×1.5), потом Кольцо (+5)")
     hero_b = FireRingDecorator(StrengthPotionDecorator(hero_b))
     hero_b.attack("Манекен")
