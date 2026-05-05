@@ -3,6 +3,11 @@ from game.core.save import SaveManager
 from game.hero import Hero
 from game.interfaces.contracts import Attackable, Damageable
 from game.patterns.adapter import EpicBoss, EpicBossAdapter
+from game.patterns.command import (
+    AttackCommand,
+    CommandHistory,
+    DrinkPotionCommand,
+)
 from game.patterns.decorators import (
     FireRingDecorator,
     PoisonWeaponDecorator,
@@ -141,6 +146,37 @@ def run_demo():
     print("\nВариант Б: Сначала Зелье (×1.5), потом Кольцо (+5)")
     hero_b = FireRingDecorator(StrengthPotionDecorator(hero_b))
     hero_b.attack("Манекен")
+
+    print("\n" + "=" * 60)
+    print("📜 ПАТТЕРН КОМАНДА (GoF): атака и зелья")
+    print("=" * 60)
+
+    hero_cmd = Hero("Роланд")
+    hero_cmd.take_damage(45)
+    print("\nСтарт (после урона):")
+    hero_cmd.render_ui()
+
+    cmd_hist = CommandHistory()
+    print("\n▶ Выполняем команды через историю:")
+    cmd_hist.execute(AttackCommand(hero_cmd, "Скелет"))
+    cmd_hist.execute(DrinkPotionCommand(hero_cmd, "heal"))
+    hero_cmd.render_ui()
+
+    macro_snapshot = cmd_hist.get_macro()
+    print("\n↩ Отмена последней команды (зелье):")
+    cmd_hist.undo()
+    hero_cmd.render_ui()
+    print("\n↪ Повтор (зелье снова):")
+    cmd_hist.redo()
+    hero_cmd.render_ui()
+
+    hero_echo = Hero("Эхо")
+    hero_echo.take_damage(60)
+    print("\n🎬 Тот же сценарий — воспроизведение макроса на другом герое:")
+    hero_echo.render_ui()
+    cmd_hist2 = CommandHistory()
+    cmd_hist2.replay_macro(macro_snapshot, hero_echo)
+    hero_echo.render_ui()
 
     print("\n" + "=" * 60)
     print("💾 СОХРАНЕНИЕ")

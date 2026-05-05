@@ -27,3 +27,6 @@ class HasHealth:
 
     def heal(self, amount: int) -> None:
         self._health = min(self._max_health, self._health + amount)
+
+    def set_health(self, value: int) -> None:
+        self._health = max(0, min(self._max_health, value))
