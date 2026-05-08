@@ -1,6 +1,3 @@
-from abc import ABC, abstractmethod
-from typing import Dict
-
 from game.entities.mixins import HasHealth
 from game.interfaces.contracts import (
     Damageable,
@@ -80,49 +77,15 @@ class IceSpike(Trap):
         return "🧊 Ледяной шип выстрелил из-под ног!"
 
 
-class LevelFactory(ABC):
-    @abstractmethod
-    def create_enemy(self) -> Enemy:
-        pass
-
-    @abstractmethod
-    def create_trap(self) -> Trap:
-        pass
-
-
-class LavaLevelFactory(LevelFactory):
-    def create_enemy(self) -> Enemy:
-        return FireElemental()
-
-    def create_trap(self) -> Trap:
-        return LavaPit()
-
-
-class ForestLevelFactory(LevelFactory):
-    def create_enemy(self) -> Enemy:
-        return ForestOrc()
-
-    def create_trap(self) -> Trap:
-        return ForestSnare()
-
-
-class IceLevelFactory(LevelFactory):
-    def create_enemy(self) -> Enemy:
-        return IceGolem()
-
-    def create_trap(self) -> Trap:
-        return IceSpike()
-
-
-FACTORY_REGISTRY: Dict[str, type[LevelFactory]] = {
-    "forest": ForestLevelFactory,
-    "lava": LavaLevelFactory,
-    "ice": IceLevelFactory,
+ENEMY_REGISTRY: dict[str, tuple[Enemy, Trap]] = {
+    "forest": (FireElemental, LavaPit),
+    "lava": (ForestOrc, ForestSnare),
+    "ice": (IceGolem, IceSpike),
 }
 
 
-def get_factory(level_name: str) -> LevelFactory:
-    factory_class = FACTORY_REGISTRY.get(level_name)
-    if not factory_class:
+def get_factory(level_name: str) -> tuple[Enemy, Trap]:
+    enemy_classes = ENEMY_REGISTRY.get(level_name)
+    if not enemy_classes:
         raise ValueError(f"Неизвестный биом: {level_name}")
-    return factory_class()
+    return enemy_classes
